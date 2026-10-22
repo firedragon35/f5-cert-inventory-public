@@ -1,0 +1,241 @@
+﻿<!DOCTYPE html>
+<html lang="en" class="no-js">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>F5 BIG-IP LTM inventory and certificate report</title>
+<style>
+:root{--ink:#1d2b36;--muted:#586976;--rule:#d3dbe2;--wash:#f2f5f7;--accent:#0c6a87;--ok:#17734a;--soon:#9a5b00;--crit:#c9302c;--expired:#8e1b2e;--orphan:#5d4e9e}
+*{box-sizing:border-box}
+html{color-scheme:light}
+body{margin:0;background:#fff;color:var(--ink);font:14px/1.5 "Segoe UI Variable Text","Segoe UI",system-ui,-apple-system,"Helvetica Neue",Arial,sans-serif}
+main{max-width:1320px;margin:0 auto;padding:24px 28px 48px}
+code{font-family:"Cascadia Mono",Consolas,"SF Mono",ui-monospace,monospace;font-size:12.5px}
+h1{font-size:20px;font-weight:600;margin:0 0 4px}
+.meta{margin:0;color:var(--muted)}
+.warn{margin:16px 0 0;padding:8px 12px;border-left:4px solid var(--soon);background:#fff7e6}
+.lead{margin:28px 0 24px;max-width:72ch}
+.headline{font-size:28px;line-height:1.25;font-weight:600;margin:0 0 8px;letter-spacing:-.01em}
+.subline{margin:0;color:var(--muted);font-size:15px}
+.overview{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(260px,1fr);gap:44px;align-items:start;padding:22px 0;border-top:1px solid var(--rule);border-bottom:1px solid var(--rule)}
+.overview h2{font-size:15px;margin:0 0 12px}
+.runway{display:grid;gap:8px}
+.rw-row{display:grid;grid-template-columns:130px minmax(0,1fr) 200px;gap:12px;align-items:center}
+.rw-label{font-weight:500}
+.rw-bar{display:flex;height:18px;background:var(--wash)}
+.rw-bar i{display:block;height:100%}
+.rw-bar .use{background:var(--c)}
+.rw-bar .orph{background:repeating-linear-gradient(135deg,var(--c) 0 3px,#fff 3px 6px);box-shadow:inset 0 0 0 1px var(--c)}
+.rw-n{color:var(--muted);font-size:13px}
+.rw-n b{color:var(--ink);font-weight:600}
+.legend{margin:12px 0 0;color:var(--muted);font-size:13px}
+.s-expired{--c:var(--expired)}.s-crit{--c:var(--crit)}.s-soon{--c:var(--soon)}.s-ok{--c:var(--ok)}.s-none{--c:var(--muted)}
+.figures{margin:0;display:grid;grid-template-columns:1fr auto;gap:0 20px}
+.figures div{display:contents}
+.figures dt,.figures dd{padding:6px 0;border-bottom:1px solid var(--rule)}
+.figures dt{color:var(--muted)}
+.figures dd{margin:0;text-align:right;font-weight:600;font-variant-numeric:tabular-nums}
+.figures .hot dt,.figures .hot dd{color:var(--crit)}
+.downloads{margin:16px 0 0;color:var(--muted)}
+a{color:var(--accent)}
+nav{display:flex;flex-wrap:wrap;gap:4px 28px;margin:22px 0 0;padding-bottom:6px}
+nav a{text-decoration:none;padding:4px 0;border-bottom:2px solid transparent;font-weight:500}
+nav a:hover,nav a:focus-visible{border-bottom-color:var(--accent)}
+section{margin-top:36px}
+h2{font-size:18px;font-weight:600;margin:0 0 4px}
+h2 .count{color:var(--muted);font-weight:400;margin-left:8px}
+.note{margin:0 0 12px;color:var(--muted);max-width:100ch}
+.empty{padding:14px 0;color:var(--muted)}
+.toolbar{gap:16px;align-items:center;flex-wrap:wrap;margin:0 0 8px}
+.js-only{display:none}.js .js-only{display:flex}
+.toolbar label{color:var(--muted)}
+input[type=search]{font:inherit;padding:4px 8px;border:1px solid var(--rule);border-radius:3px;min-width:240px}
+button{font:inherit;padding:4px 12px;border:1px solid var(--accent);background:#fff;color:var(--accent);border-radius:3px;cursor:pointer}
+button:hover{background:var(--accent);color:#fff}
+.shown{color:var(--muted);margin-right:auto}
+.tablewrap{overflow-x:auto;border-top:1px solid var(--ink)}
+table.data{border-collapse:collapse;width:100%;min-width:880px}
+table.data th{text-align:left;font-weight:600;padding:8px 12px;border-bottom:1px solid var(--rule);background:var(--wash);white-space:nowrap}
+table.data td{padding:8px 12px;border-bottom:1px solid var(--rule);vertical-align:top}
+table.data tbody tr:hover{background:#f8fafb}
+.js table.data th{cursor:pointer;user-select:none}
+th[aria-sort=ascending]::after{content:" \25B2";font-size:10px}
+th[aria-sort=descending]::after{content:" \25BC";font-size:10px}
+.badge{display:inline-block;padding:0 7px;border:1px solid var(--c,var(--muted));color:var(--c,var(--muted));border-radius:3px;font-size:12px;line-height:18px;font-weight:600;white-space:nowrap}
+.badge.s-expired{background:var(--expired);color:#fff}
+.u-use{--c:var(--accent)}.u-orphan{--c:var(--orphan)}
+.muted{color:var(--muted)}
+.certline{margin:0 0 3px}
+.certline .role{color:var(--muted);font-size:12px}
+details summary{cursor:pointer;color:var(--accent)}
+ul.members{list-style:none;margin:6px 0 0;padding:0}
+ul.members li{display:flex;gap:8px;align-items:center;padding:1px 0}
+.led{width:9px;height:9px;border-radius:50%;background:var(--muted);flex:none}
+.led.up{background:var(--ok)}.led.down{background:var(--crit)}.led.disabled{background:#fff;border:2px solid var(--muted)}
+.state{color:var(--muted);font-size:12px}
+footer{margin-top:40px;padding-top:14px;border-top:1px solid var(--rule);color:var(--muted);max-width:100ch}
+footer p{margin:0 0 6px}
+a:focus-visible,button:focus-visible,input:focus-visible,summary:focus-visible,th:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+@media (max-width:860px){main{padding:16px}.overview{grid-template-columns:1fr;gap:24px}.rw-row{grid-template-columns:110px minmax(0,1fr)}.rw-n{grid-column:1/-1}.headline{font-size:22px}}
+</style>
+</head>
+<body>
+<main>
+<header>
+<h1>F5 BIG-IP LTM inventory and certificate report</h1>
+<p class="meta">Collected 2026-10-08 04:30 UTC from <code>127.0.0.1:8443</code>. Expiry window: 90 days.</p>
+</header>
+
+<div class="lead">
+<p class="headline">4 orphaned certificates expire in under 90 days, 1 already expired.</p>
+<p class="subline">3 certificates bound to virtual servers also expire inside that window.</p>
+</div>
+<div class="overview">
+<div>
+<h2>Certificate expiry runway</h2>
+<div class="runway">
+<div class='rw-row s-expired'><span class='rw-label'>Expired</span><span class='rw-bar' role='img' aria-label='0 associated, 1 orphaned'><i class='use' style='width:0%'></i><i class='orph' style='width:25%'></i></span><span class='rw-n'><b>1</b> &nbsp;0 associated, 1 orphaned</span></div>
+<div class='rw-row s-crit'><span class='rw-label'>Under 30 days</span><span class='rw-bar' role='img' aria-label='2 associated, 1 orphaned'><i class='use' style='width:50%'></i><i class='orph' style='width:25%'></i></span><span class='rw-n'><b>3</b> &nbsp;2 associated, 1 orphaned</span></div>
+<div class='rw-row s-soon'><span class='rw-label'>30 to 59 days</span><span class='rw-bar' role='img' aria-label='0 associated, 2 orphaned'><i class='use' style='width:0%'></i><i class='orph' style='width:50%'></i></span><span class='rw-n'><b>2</b> &nbsp;0 associated, 2 orphaned</span></div>
+<div class='rw-row s-soon'><span class='rw-label'>60 to 89 days</span><span class='rw-bar' role='img' aria-label='1 associated, 0 orphaned'><i class='use' style='width:25%'></i><i class='orph' style='width:0%'></i></span><span class='rw-n'><b>1</b> &nbsp;1 associated, 0 orphaned</span></div>
+<div class='rw-row s-ok'><span class='rw-label'>90 to 179 days</span><span class='rw-bar' role='img' aria-label='0 associated, 0 orphaned'><i class='use' style='width:0%'></i><i class='orph' style='width:0%'></i></span><span class='rw-n'><b>0</b> &nbsp;0 associated, 0 orphaned</span></div>
+<div class='rw-row s-ok'><span class='rw-label'>180 days or more</span><span class='rw-bar' role='img' aria-label='3 associated, 1 orphaned'><i class='use' style='width:75%'></i><i class='orph' style='width:25%'></i></span><span class='rw-n'><b>4</b> &nbsp;3 associated, 1 orphaned</span></div>
+</div>
+<p class="legend">Solid bars are certificates bound to a virtual server. Striped bars are orphaned certificates. </p>
+</div>
+<dl class="figures">
+<div class=''><dt>Virtual servers</dt><dd>6</dd></div>
+<div class=''><dt>Pools</dt><dd>5</dd></div>
+<div class=''><dt>Pool members</dt><dd>7</dd></div>
+<div class=''><dt>Certificates in the store</dt><dd>14</dd></div>
+<div class=''><dt>Associated with a virtual server</dt><dd>6</dd></div>
+<div class=''><dt>Orphaned</dt><dd>5</dd></div>
+<div class='hot'><dt>Orphaned and under 90 days</dt><dd>4</dd></div>
+</dl>
+</div>
+<p class="downloads">Download the full data: <a href='F5-Report.zip' download>ZIP bundle</a>, <a href='F5-Orphaned-Certificates.csv' download>orphaned certificates</a>, <a href='F5-Certificates.csv' download>all certificates</a>, <a href='F5-VirtualServers.csv' download>virtual servers</a>, <a href='F5-VS-Pool-Members.csv' download>virtual server and pool member rows</a>, <a href='F5-Pools.csv' download>pools</a>.</p>
+<nav aria-label="Report sections">
+<a href='#virtual-servers'>Virtual servers (6)</a><a href='#pools'>Pools and members (5)</a><a href='#certificates'>Certificates (14)</a><a href='#orphaned'>Orphaned certificates (5)</a>
+</nav>
+<section id="virtual-servers" data-table="virtual-servers">
+<h2>Virtual servers<span class="count">6</span></h2>
+<p class="note">Default pool, pool members and the certificates reached through each virtual server&#39;s client-SSL and server-SSL profiles. Member status is what the BIG-IP reported at collection time. A pool picked by an iRule or LTM policy instead of the default pool is not traced.</p>
+<div class="toolbar js-only">
+<label>Filter <input type="search" class="filter" placeholder="Type to filter rows"></label>
+<span class="shown" aria-live="polite"></span>
+<button type="button" class="export">Export CSV</button>
+</div>
+<div class='tablewrap'><table class='data' id='tbl-vs'><thead><tr><th scope='col'>Virtual server</th><th scope='col'>Destination</th><th scope='col'>Protocol</th><th scope='col'>Status</th><th scope='col'>Pool</th><th scope='col'>Pool members</th><th scope='col'>Certificates</th><th scope='col'>iRules</th></tr></thead><tbody><tr><td data-v="/Partner/vs_p"><code>/Partner/vs_p</code></td><td data-v="10.30.0.10:443"><code>10.30.0.10:443</code></td><td data-v="tcp">tcp</td><td data-v="Enabled">Enabled</td><td data-v="/Partner/pool_p"><code>/Partner/pool_p</code></td><td data-v="1 members: 10.30.0.5:80 (Up)"><details><summary>1 member</summary><ul class='members'><li><span class='led up' aria-hidden='true'></span><code>10.30.0.5:80</code><span class='state'>Up</span></li></ul></details></td><td data-v="default.crt (expires 2029-07-04 04:28, 999 days)"><div class='certline'><code>default.crt</code> <span class='badge s-ok'>999 d</span></div></td><td data-v=""></td></tr><tr><td data-v="vs_api"><code>vs_api</code></td><td data-v="10.10.1.20:443"><code>10.10.1.20:443</code></td><td data-v="tcp">tcp</td><td data-v="Disabled"><span class='badge s-soon'>Disabled</span></td><td data-v="pool_api"><code>pool_api</code></td><td data-v="2 members: 10.20.2.11:8443 (Up); 10.20.2.12:8443 (Disabled)"><details><summary>2 members, 1 not up</summary><ul class='members'><li><span class='led up' aria-hidden='true'></span><code>10.20.2.11:8443</code><span class='state'>Up</span></li><li><span class='led disabled' aria-hidden='true'></span><code>10.20.2.12:8443</code><span class='state'>Disabled</span></li></ul></details></td><td data-v="api-ecdsa.crt (expires 2026-11-02 04:28, 24 days); api.example.com.crt (expires 2026-11-02 04:28, 24 days); backend-client.crt (expires 2026-12-22 04:28, 74 days); internal-ca.crt (expires 2028-09-07 04:28, 699 days)"><div class='certline'><code>api-ecdsa.crt</code> <span class='badge s-crit'>24 d</span></div><div class='certline'><code>api.example.com.crt</code> <span class='badge s-crit'>24 d</span></div><div class='certline'><code>backend-client.crt</code> <span class='role'>(server-side certificate)</span> <span class='badge s-soon'>74 d</span></div><div class='certline'><code>internal-ca.crt</code> <span class='role'>(ca file)</span> <span class='badge s-ok'>699 d</span></div></td><td data-v=""></td></tr><tr><td data-v="vs_rd"><code>vs_rd</code></td><td data-v="10.10.2.5%2:8443"><code>10.10.2.5%2:8443</code></td><td data-v="tcp">tcp</td><td data-v="Enabled">Enabled</td><td data-v=""><span class='muted'>none</span></td><td data-v="0 members"><span class='muted'>none</span></td><td data-v="intermediate.crt (expires 2027-08-04 04:28, 299 days); www.example.com.crt (expires 2027-04-26 04:28, 199 days)"><div class='certline'><code>intermediate.crt</code> <span class='role'>(chain)</span> <span class='badge s-ok'>299 d</span></div><div class='certline'><code>www.example.com.crt</code> <span class='badge s-ok'>199 d</span></div></td><td data-v=""></td></tr><tr><td data-v="vs_v6"><code>vs_v6</code></td><td data-v="2001:db8::10:443"><code>2001:db8::10:443</code></td><td data-v="tcp">tcp</td><td data-v="Enabled">Enabled</td><td data-v=""><span class='muted'>none</span></td><td data-v="0 members"><span class='muted'>none</span></td><td data-v="default.crt (expires 2029-07-04 04:28, 999 days)"><div class='certline'><code>default.crt</code> <span class='badge s-ok'>999 d</span></div></td><td data-v=""></td></tr><tr><td data-v="vs_www_http"><code>vs_www_http</code></td><td data-v="10.10.1.10:80"><code>10.10.1.10:80</code></td><td data-v="tcp">tcp</td><td data-v="Enabled">Enabled</td><td data-v="pool_www"><code>pool_www</code></td><td data-v="3 members: 10.20.1.11:80 (Up); 10.20.1.12:80 (Up); 10.20.1.13:80 (Down)"><details><summary>3 members, 1 not up</summary><ul class='members'><li><span class='led up' aria-hidden='true'></span><code>10.20.1.11:80</code><span class='state'>Up</span></li><li><span class='led up' aria-hidden='true'></span><code>10.20.1.12:80</code><span class='state'>Up</span></li><li><span class='led down' aria-hidden='true'></span><code>10.20.1.13:80</code><span class='state'>Down</span></li></ul></details></td><td data-v=""><span class='muted'>none</span></td><td data-v=""></td></tr><tr><td data-v="vs_www_https"><code>vs_www_https</code></td><td data-v="10.10.1.10:443"><code>10.10.1.10:443</code></td><td data-v="tcp">tcp</td><td data-v="Enabled">Enabled</td><td data-v="pool_www"><code>pool_www</code></td><td data-v="3 members: 10.20.1.11:80 (Up); 10.20.1.12:80 (Up); 10.20.1.13:80 (Down)"><details><summary>3 members, 1 not up</summary><ul class='members'><li><span class='led up' aria-hidden='true'></span><code>10.20.1.11:80</code><span class='state'>Up</span></li><li><span class='led up' aria-hidden='true'></span><code>10.20.1.12:80</code><span class='state'>Up</span></li><li><span class='led down' aria-hidden='true'></span><code>10.20.1.13:80</code><span class='state'>Down</span></li></ul></details></td><td data-v="intermediate.crt (expires 2027-08-04 04:28, 299 days); www.example.com.crt (expires 2027-04-26 04:28, 199 days)"><div class='certline'><code>intermediate.crt</code> <span class='role'>(chain)</span> <span class='badge s-ok'>299 d</span></div><div class='certline'><code>www.example.com.crt</code> <span class='badge s-ok'>199 d</span></div></td><td data-v="redirect_rule"><code>redirect_rule</code></td></tr></tbody></table></div>
+</section>
+<section id="pools" data-table="pools-and-members">
+<h2>Pools and members<span class="count">5</span></h2>
+<p class="note">Every pool with its members. A pool that is not the default pool of any virtual server is shown as having no virtual server; it may still be selected by an iRule or policy.</p>
+<div class="toolbar js-only">
+<label>Filter <input type="search" class="filter" placeholder="Type to filter rows"></label>
+<span class="shown" aria-live="polite"></span>
+<button type="button" class="export">Export CSV</button>
+</div>
+<div class='tablewrap'><table class='data' id='tbl-pools'><thead><tr><th scope='col'>Pool</th><th scope='col'>Load balancing</th><th scope='col'>Monitor</th><th scope='col'>Members</th><th scope='col'>Default pool for</th></tr></thead><tbody><tr><td data-v="/Partner/pool_p"><code>/Partner/pool_p</code></td><td data-v="round-robin">round-robin</td><td data-v="http">http</td><td data-v="1 members: 10.30.0.5:80 (Up)"><details><summary>1 member</summary><ul class='members'><li><span class='led up' aria-hidden='true'></span><code>10.30.0.5:80</code><span class='state'>Up</span></li></ul></details></td><td data-v="/Partner/vs_p"><code>/Partner/vs_p</code></td></tr><tr><td data-v="pool_api"><code>pool_api</code></td><td data-v="round-robin">round-robin</td><td data-v="https and tcp">https and tcp</td><td data-v="2 members: 10.20.2.11:8443 (Up); 10.20.2.12:8443 (Disabled)"><details><summary>2 members, 1 not up</summary><ul class='members'><li><span class='led up' aria-hidden='true'></span><code>10.20.2.11:8443</code><span class='state'>Up</span></li><li><span class='led disabled' aria-hidden='true'></span><code>10.20.2.12:8443</code><span class='state'>Disabled</span></li></ul></details></td><td data-v="vs_api"><code>vs_api</code></td></tr><tr><td data-v="pool_empty"><code>pool_empty</code></td><td data-v="round-robin">round-robin</td><td data-v="http">http</td><td data-v="0 members"><span class='muted'>none</span></td><td data-v=""><span class='muted'>no virtual server</span></td></tr><tr><td data-v="pool_unused"><code>pool_unused</code></td><td data-v="round-robin">round-robin</td><td data-v="http">http</td><td data-v="1 members: web-legacy:80 (Unchecked)"><details><summary>1 member, 1 not up</summary><ul class='members'><li><span class='led unchecked' aria-hidden='true'></span><code>web-legacy:80 (10.20.9.9)</code><span class='state'>Unchecked</span></li></ul></details></td><td data-v=""><span class='muted'>no virtual server</span></td></tr><tr><td data-v="pool_www"><code>pool_www</code></td><td data-v="round-robin">round-robin</td><td data-v="http">http</td><td data-v="3 members: 10.20.1.11:80 (Up); 10.20.1.12:80 (Up); 10.20.1.13:80 (Down)"><details><summary>3 members, 1 not up</summary><ul class='members'><li><span class='led up' aria-hidden='true'></span><code>10.20.1.11:80</code><span class='state'>Up</span></li><li><span class='led up' aria-hidden='true'></span><code>10.20.1.12:80</code><span class='state'>Up</span></li><li><span class='led down' aria-hidden='true'></span><code>10.20.1.13:80</code><span class='state'>Down</span></li></ul></details></td><td data-v="vs_www_http; vs_www_https"><code>vs_www_http; vs_www_https</code></td></tr></tbody></table></div>
+</section>
+<section id="certificates" data-table="certificates">
+<h2>Certificates in the store<span class="count">14</span></h2>
+<p class="note">Associated means the certificate, its chain or its CA file is referenced by an SSL profile attached to at least one virtual server. F5 default certificates (for example default.crt and ca-bundle.crt) are marked and left out of the orphan counts.</p>
+<div class="toolbar js-only">
+<label>Filter <input type="search" class="filter" placeholder="Type to filter rows"></label>
+<span class="shown" aria-live="polite"></span>
+<button type="button" class="export">Export CSV</button>
+</div>
+<div class='tablewrap'><table class='data' id='tbl-certs'><thead><tr><th scope='col'>Certificate</th><th scope='col'>Common name</th><th scope='col'>Issuer</th><th scope='col'>Expires (UTC)</th><th scope='col'>Days left</th><th scope='col'>Association</th><th scope='col'>Virtual servers</th><th scope='col'>Key</th></tr></thead><tbody><tr><td data-v="old-portal.crt"><code>old-portal.crt</code></td><td data-v="old-portal">old-portal</td><td data-v="Example Issuing CA">Example Issuing CA</td><td data-v="2026-09-26 04:28">2026-09-26 04:28</td><td data-v="-13"><span class='badge s-expired'>Expired 13 d ago</span></td><td data-v="Orphaned"><span class='badge u-orphan'>Orphaned</span></td><td data-v=""></td><td data-v="RSA 2048">RSA 2048</td></tr><tr><td data-v="/Partner/partner.crt"><code>/Partner/partner.crt</code></td><td data-v="partner">partner</td><td data-v="Example Issuing CA">Example Issuing CA</td><td data-v="2026-10-18 04:28">2026-10-18 04:28</td><td data-v="9"><span class='badge s-crit'>9 d</span></td><td data-v="Orphaned"><span class='badge u-orphan'>Orphaned</span></td><td data-v=""></td><td data-v="RSA 2048">RSA 2048</td></tr><tr><td data-v="api-ecdsa.crt"><code>api-ecdsa.crt</code></td><td data-v="api-ecdsa">api-ecdsa</td><td data-v="Example Issuing CA">Example Issuing CA</td><td data-v="2026-11-02 04:28">2026-11-02 04:28</td><td data-v="24"><span class='badge s-crit'>24 d</span></td><td data-v="Associated"><span class='badge u-use'>Associated</span></td><td data-v="vs_api"><code>vs_api</code></td><td data-v="ECDSA prime256v1">ECDSA prime256v1</td></tr><tr><td data-v="api.example.com.crt"><code>api.example.com.crt</code></td><td data-v="api.example.com">api.example.com</td><td data-v="Example Issuing CA">Example Issuing CA</td><td data-v="2026-11-02 04:28">2026-11-02 04:28</td><td data-v="24"><span class='badge s-crit'>24 d</span></td><td data-v="Associated"><span class='badge u-use'>Associated</span></td><td data-v="vs_api"><code>vs_api</code></td><td data-v="RSA 2048">RSA 2048</td></tr><tr><td data-v="legacy-app.crt"><code>legacy-app.crt</code></td><td data-v="legacy-app">legacy-app</td><td data-v="Example Issuing CA">Example Issuing CA</td><td data-v="2026-11-17 04:28">2026-11-17 04:28</td><td data-v="39"><span class='badge s-soon'>39 d</span></td><td data-v="Orphaned"><span class='badge u-orphan'>Orphaned</span></td><td data-v=""></td><td data-v="RSA 2048">RSA 2048</td></tr><tr><td data-v="noepoch.crt"><code>noepoch.crt</code></td><td data-v="noepoch">noepoch</td><td data-v="Example Issuing CA">Example Issuing CA</td><td data-v="2026-11-22 04:28">2026-11-22 04:28</td><td data-v="44"><span class='badge s-soon'>44 d</span></td><td data-v="Orphaned"><span class='badge u-orphan'>Orphaned</span></td><td data-v=""></td><td data-v="RSA 2048">RSA 2048</td></tr><tr><td data-v="backend-client.crt"><code>backend-client.crt</code></td><td data-v="backend-client">backend-client</td><td data-v="Example Issuing CA">Example Issuing CA</td><td data-v="2026-12-22 04:28">2026-12-22 04:28</td><td data-v="74"><span class='badge s-soon'>74 d</span></td><td data-v="Associated"><span class='badge u-use'>Associated</span></td><td data-v="vs_api"><code>vs_api</code></td><td data-v="RSA 2048">RSA 2048</td></tr><tr><td data-v="www.example.com.crt"><code>www.example.com.crt</code></td><td data-v="www.example.com">www.example.com</td><td data-v="Example Issuing CA">Example Issuing CA</td><td data-v="2027-04-26 04:28">2027-04-26 04:28</td><td data-v="199"><span class='badge s-ok'>199 d</span></td><td data-v="Associated"><span class='badge u-use'>Associated</span></td><td data-v="vs_rd; vs_www_https"><code>vs_rd; vs_www_https</code></td><td data-v="RSA 2048">RSA 2048</td></tr><tr><td data-v="intermediate.crt"><code>intermediate.crt</code></td><td data-v="intermediate">intermediate</td><td data-v="Example Issuing CA">Example Issuing CA</td><td data-v="2027-08-04 04:28">2027-08-04 04:28</td><td data-v="299"><span class='badge s-ok'>299 d</span></td><td data-v="Associated"><span class='badge u-use'>Associated</span></td><td data-v="vs_rd; vs_www_https"><code>vs_rd; vs_www_https</code></td><td data-v="RSA 2048">RSA 2048</td></tr><tr><td data-v="spare.crt"><code>spare.crt</code></td><td data-v="spare">spare</td><td data-v="Example Issuing CA">Example Issuing CA</td><td data-v="2027-11-12 04:28">2027-11-12 04:28</td><td data-v="399"><span class='badge s-ok'>399 d</span></td><td data-v="Orphaned"><span class='badge u-orphan'>Orphaned</span></td><td data-v=""></td><td data-v="RSA 2048">RSA 2048</td></tr><tr><td data-v="ca-bundle.crt"><code>ca-bundle.crt</code> <span class='muted'>(F5 default)</span></td><td data-v="ca-bundle">ca-bundle</td><td data-v="Example Issuing CA">Example Issuing CA</td><td data-v="2028-02-20 04:28">2028-02-20 04:28</td><td data-v="499"><span class='badge s-ok'>499 d</span></td><td data-v="Orphaned"><span class='badge u-orphan'>Orphaned</span></td><td data-v=""></td><td data-v="RSA 2048">RSA 2048</td></tr><tr><td data-v="internal-ca.crt"><code>internal-ca.crt</code></td><td data-v="internal-ca">internal-ca</td><td data-v="Example Issuing CA">Example Issuing CA</td><td data-v="2028-09-07 04:28">2028-09-07 04:28</td><td data-v="699"><span class='badge s-ok'>699 d</span></td><td data-v="Associated"><span class='badge u-use'>Associated</span></td><td data-v="vs_api"><code>vs_api</code></td><td data-v="RSA 2048">RSA 2048</td></tr><tr><td data-v="f5-irule.crt"><code>f5-irule.crt</code> <span class='muted'>(F5 default)</span></td><td data-v="f5-irule">f5-irule</td><td data-v="Example Issuing CA">Example Issuing CA</td><td data-v="2029-03-26 04:28">2029-03-26 04:28</td><td data-v="899"><span class='badge s-ok'>899 d</span></td><td data-v="Orphaned"><span class='badge u-orphan'>Orphaned</span></td><td data-v=""></td><td data-v="RSA 2048">RSA 2048</td></tr><tr><td data-v="default.crt"><code>default.crt</code> <span class='muted'>(F5 default)</span></td><td data-v="default">default</td><td data-v="Example Issuing CA">Example Issuing CA</td><td data-v="2029-07-04 04:28">2029-07-04 04:28</td><td data-v="999"><span class='badge s-ok'>999 d</span></td><td data-v="Associated"><span class='badge u-use'>Associated</span></td><td data-v="/Partner/vs_p; vs_v6"><code>/Partner/vs_p; vs_v6</code></td><td data-v="RSA 2048">RSA 2048</td></tr></tbody></table></div>
+</section>
+<section id="orphaned" data-table="orphaned-certificates">
+<h2>Orphaned certificates<span class="count">5</span></h2>
+<p class="note">Certificates no virtual server uses, soonest expiry first. Certificates that expire in under 90 days, including those already expired, are marked Yes. Certificates used only by other features (HTTPS monitors, APM or SAML, device certificates) are not detected, so confirm before deleting anything.</p>
+<div class="toolbar js-only">
+<label>Filter <input type="search" class="filter" placeholder="Type to filter rows"></label>
+<span class="shown" aria-live="polite"></span>
+<button type="button" class="export">Export CSV</button>
+</div>
+<div class='tablewrap'><table class='data' id='tbl-orphans'><thead><tr><th scope='col'>Certificate</th><th scope='col'>Common name</th><th scope='col'>Issuer</th><th scope='col'>Expires (UTC)</th><th scope='col'>Days left</th><th scope='col'>Under 90 days</th><th scope='col'>Why it is orphaned</th></tr></thead><tbody><tr><td data-v="old-portal.crt"><code>old-portal.crt</code></td><td data-v="old-portal">old-portal</td><td data-v="Example Issuing CA">Example Issuing CA</td><td data-v="2026-09-26 04:28">2026-09-26 04:28</td><td data-v="-13"><span class='badge s-expired'>Expired 13 d ago</span></td><td data-v="Yes"><span class='badge s-crit'>Yes</span></td><td data-v="Not referenced by any SSL profile">Not referenced by any SSL profile</td></tr><tr><td data-v="/Partner/partner.crt"><code>/Partner/partner.crt</code></td><td data-v="partner">partner</td><td data-v="Example Issuing CA">Example Issuing CA</td><td data-v="2026-10-18 04:28">2026-10-18 04:28</td><td data-v="9"><span class='badge s-crit'>9 d</span></td><td data-v="Yes"><span class='badge s-crit'>Yes</span></td><td data-v="Not referenced by any SSL profile">Not referenced by any SSL profile</td></tr><tr><td data-v="legacy-app.crt"><code>legacy-app.crt</code></td><td data-v="legacy-app">legacy-app</td><td data-v="Example Issuing CA">Example Issuing CA</td><td data-v="2026-11-17 04:28">2026-11-17 04:28</td><td data-v="39"><span class='badge s-soon'>39 d</span></td><td data-v="Yes"><span class='badge s-crit'>Yes</span></td><td data-v="Referenced only by SSL profile(s) not attached to a virtual server: clientssl_legacy">Referenced only by SSL profile(s) not attached to a virtual server: clientssl_legacy</td></tr><tr><td data-v="noepoch.crt"><code>noepoch.crt</code></td><td data-v="noepoch">noepoch</td><td data-v="Example Issuing CA">Example Issuing CA</td><td data-v="2026-11-22 04:28">2026-11-22 04:28</td><td data-v="44"><span class='badge s-soon'>44 d</span></td><td data-v="Yes"><span class='badge s-crit'>Yes</span></td><td data-v="Not referenced by any SSL profile">Not referenced by any SSL profile</td></tr><tr><td data-v="spare.crt"><code>spare.crt</code></td><td data-v="spare">spare</td><td data-v="Example Issuing CA">Example Issuing CA</td><td data-v="2027-11-12 04:28">2027-11-12 04:28</td><td data-v="399"><span class='badge s-ok'>399 d</span></td><td data-v="No">No</td><td data-v="Not referenced by any SSL profile">Not referenced by any SSL profile</td></tr></tbody></table></div>
+</section>
+<footer>
+<p>Orphaned means no SSL profile attached to a virtual server references the certificate, its chain or its CA file. Days left are counted from collection time. Data comes from the iControl REST endpoints /mgmt/tm/ltm/virtual, /ltm/pool, /ltm/profile/client-ssl, /ltm/profile/server-ssl and /sys/file/ssl-cert.</p>
+</footer>
+</main>
+<script>
+(function () {
+  document.documentElement.className = 'js';
+  var collator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
+  function cellValue(td) { var v = td.getAttribute('data-v'); return v === null ? td.textContent.trim() : v; }
+  function isNum(s) { return /^-?\d+(\.\d+)?$/.test(s); }
+  function csvEscape(s) { return '"' + String(s).replace(/"/g, '""') + '"'; }
+
+  Array.prototype.forEach.call(document.querySelectorAll('section[data-table]'), function (sec) {
+    var tbl = sec.querySelector('table.data');
+    if (!tbl) { var tb = sec.querySelector('.toolbar'); if (tb) tb.style.display = 'none'; return; }
+    var body = tbl.tBodies[0];
+    var rows = Array.prototype.slice.call(body.rows);
+    var ths = tbl.tHead.rows[0].cells;
+    var input = sec.querySelector('.filter');
+    var shown = sec.querySelector('.shown');
+    var exportBtn = sec.querySelector('.export');
+
+    function updateCount() {
+      var n = 0;
+      rows.forEach(function (r) { if (!r.hidden) n++; });
+      shown.textContent = 'Showing ' + n + ' of ' + rows.length;
+    }
+
+    rows.forEach(function (r) {
+      r._text = (Array.prototype.map.call(r.cells, cellValue).join(' ') + ' ' + r.textContent).toLowerCase();
+    });
+
+    input.addEventListener('input', function () {
+      var q = input.value.trim().toLowerCase();
+      rows.forEach(function (r) { r.hidden = q !== '' && r._text.indexOf(q) === -1; });
+      updateCount();
+    });
+
+    Array.prototype.forEach.call(ths, function (th, i) {
+      th.tabIndex = 0;
+      function sortBy() {
+        var dir = th.getAttribute('aria-sort') === 'ascending' ? 'descending' : 'ascending';
+        Array.prototype.forEach.call(ths, function (o) { o.removeAttribute('aria-sort'); });
+        th.setAttribute('aria-sort', dir);
+        var f = dir === 'ascending' ? 1 : -1;
+        rows.sort(function (a, b) {
+          var x = cellValue(a.cells[i]), y = cellValue(b.cells[i]);
+          if (x === '' && y !== '') return 1;
+          if (y === '' && x !== '') return -1;
+          if (isNum(x) && isNum(y)) return (parseFloat(x) - parseFloat(y)) * f;
+          return collator.compare(x, y) * f;
+        });
+        rows.forEach(function (r) { body.appendChild(r); });
+      }
+      th.addEventListener('click', sortBy);
+      th.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); sortBy(); }
+      });
+    });
+
+    exportBtn.addEventListener('click', function () {
+      var out = [Array.prototype.map.call(ths, function (th) { return csvEscape(th.textContent.trim()); }).join(',')];
+      rows.forEach(function (r) {
+        if (r.hidden) return;
+        out.push(Array.prototype.map.call(r.cells, function (td) { return csvEscape(cellValue(td)); }).join(','));
+      });
+      var blob = new Blob(['\uFEFF' + out.join('\r\n')], { type: 'text/csv;charset=utf-8' });
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = sec.getAttribute('data-table') + '.csv';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
+    });
+
+    updateCount();
+  });
+})();
+</script>
+</body>
+</html>
