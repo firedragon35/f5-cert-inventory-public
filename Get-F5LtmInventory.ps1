@@ -59,6 +59,9 @@
 
 .EXAMPLE
     .\Get-F5LtmInventory.ps1 -BigIpHost lb1,lb2 -CredentialFile .\f5.cred -OutputDirectory D:\inetpub\f5 -ExpiryWarningDays 60
+
+.NOTES
+    Version: 1.0.1 (2026-10-24)
 #>
 [CmdletBinding()]
 param(
@@ -216,9 +219,58 @@ function Disconnect-F5 {
 
 function Get-F5Items {
     param([string]$Device, [hashtable]$Headers, [string]$Path)
-    $r = Invoke-F5Api -Device $Device -Path $Path -Headers $Headers
-    if ($r -and $r.items) { return @($r.items) }
-    return @()
+    $baseUri = [Uri]("https://$Device/")
+    $nextPath = $Path
+    $items = New-Object System.Collections.Generic.List[object]
+    $seenPages = New-Object 'System.Collections.Generic.HashSet[string]' ([StringComparer]::Ordinal)
+    $seenItemPaths = New-Object 'System.Collections.Generic.HashSet[string]' ([StringComparer]::OrdinalIgnoreCase)
+    $pageCount = 0
+
+    while ($nextPath) {
+        $target = [Uri]::new($baseUri, $nextPath)
+        if ($target.Scheme -ne 'https' -or $target.Host -ne $baseUri.Host -or $target.Port -ne $baseUri.Port -or $target.UserInfo) {
+            throw "Refusing to follow a BIG-IP collection link outside https://$Device."
+        }
+        $requestPath = $target.PathAndQuery
+        if (-not $seenPages.Add($requestPath)) { throw "BIG-IP collection pagination loop detected at $requestPath." }
+        $pageCount++
+        if ($pageCount -gt 10000) { throw "BIG-IP collection exceeded the 10,000-page safety limit at $Path." }
+
+        $r = Invoke-F5Api -Device $Device -Path $requestPath -Headers $Headers
+        if (-not $r) { break }
+        $pageItems = if ($null -eq $r.items) { @() } else { @($r.items) }
+        foreach ($item in $pageItems) {
+            if ($item.fullPath) {
+                $itemPath = [string]$item.fullPath
+            }
+            elseif ($item.partition -and $item.name) {
+                $itemPath = '/' + $item.partition + '/' + $item.name
+            }
+            else {
+                $itemPath = $null
+            }
+            if ($itemPath -and -not $seenItemPaths.Add($itemPath)) {
+                throw "BIG-IP collection returned duplicate item '$itemPath' while paging $Path; refusing to produce an incomplete inventory."
+            }
+            $items.Add($item)
+        }
+
+        $nextPath = $null
+        if ($r.nextLink) {
+            $nextPath = [string]$r.nextLink
+        }
+        elseif ($null -ne $r.totalItems -and [int64]$r.totalItems -gt $items.Count) {
+            if ($pageItems.Count -eq 0) {
+                throw "BIG-IP collection returned no items before totalItems ($($r.totalItems)) was reached at $requestPath."
+            }
+            $query = $target.Query.TrimStart('?') -replace '(^|&)\$skip=[^&]*', '' -replace '(^|&)\$top=[^&]*', ''
+            $query = $query.Trim('&')
+            if ($query) { $query += '&' }
+            $nextPath = $target.AbsolutePath + '?' + $query + '$skip=' + $items.Count + '&$top=' + $pageItems.Count
+        }
+    }
+
+    return $items.ToArray()
 }
 
 # Returns the items of an expanded sub-collection, or fetches the sub-collection when -Fetch is set.
@@ -294,6 +346,45 @@ function Get-ProfileCertRefs {
     return @($sources | Where-Object { $_.Path -and $_.Path -ne 'none' } | Sort-Object Path, Role -Unique)
 }
 
+function Get-EffectiveProfileCertRefs {
+    param($Profile, [hashtable]$Profiles)
+    $refs = New-Object System.Collections.Generic.List[object]
+    $visited = New-Object 'System.Collections.Generic.HashSet[string]' ([StringComparer]::OrdinalIgnoreCase)
+    $current = $Profile
+    while ($current) {
+        if (-not $visited.Add($current.FullPath)) {
+            Write-Warning "SSL profile inheritance cycle detected at $($current.FullPath)."
+            break
+        }
+        foreach ($ref in $current.Refs) { $refs.Add($ref) }
+
+        $parentName = [string]$current.DefaultsFrom
+        if (-not $parentName -or $parentName -eq 'none') { break }
+        $parentPath = $parentName
+        if (-not $parentPath.StartsWith('/')) {
+            if ($parentPath.Contains('/')) {
+                $parentPath = '/' + $parentPath.TrimStart('/')
+            }
+            else {
+                $samePartitionPath = '/' + $current.Partition + '/' + $parentPath
+                $commonPath = '/Common/' + $parentPath
+                if ($Profiles.ContainsKey($samePartitionPath)) { $parentPath = $samePartitionPath }
+                elseif ($Profiles.ContainsKey($commonPath)) { $parentPath = $commonPath }
+                else {
+                    Write-Warning "Could not resolve defaultsFrom '$parentName' for SSL profile $($current.FullPath)."
+                    break
+                }
+            }
+        }
+        if (-not $Profiles.ContainsKey($parentPath)) {
+            Write-Warning "Could not resolve defaultsFrom '$parentName' for SSL profile $($current.FullPath)."
+            break
+        }
+        $current = $Profiles[$parentPath]
+    }
+    return @($refs | Sort-Object Path, Role -Unique)
+}
+
 # =====================================================================================
 #  Data collection for one BIG-IP
 # =====================================================================================
@@ -308,11 +399,17 @@ function Get-F5Data {
         foreach ($p in @(Get-F5Items -Device $Device -Headers $Headers -Path "/mgmt/tm/ltm/profile/$type")) {
             $full = if ($p.fullPath) { $p.fullPath } else { "/$($p.partition)/$($p.name)" }
             $sslProfiles[$full] = [pscustomobject]@{
-                FullPath = $full
-                Type     = $type
-                Refs     = @(Get-ProfileCertRefs -SslProfile $p)
+                FullPath     = $full
+                Partition    = $p.partition
+                Name         = $p.name
+                Type         = $type
+                DefaultsFrom = $p.defaultsFrom
+                Refs         = @(Get-ProfileCertRefs -SslProfile $p)
             }
         }
+    }
+    foreach ($profile in $sslProfiles.Values) {
+        $profile | Add-Member -NotePropertyName EffectiveRefs -NotePropertyValue @(Get-EffectiveProfileCertRefs -Profile $profile -Profiles $sslProfiles)
     }
 
     # ---- Certificate store ---------------------------------------------------------
@@ -427,7 +524,7 @@ function Get-F5Data {
             if (-not $sslProfiles.ContainsKey($pf)) { continue }
             $sp = $sslProfiles[$pf]
             if ($sp.Type -eq 'client-ssl') { $clientProfiles += (Short $pf) } else { $serverProfiles += (Short $pf) }
-            foreach ($ref in $sp.Refs) {
+            foreach ($ref in $sp.EffectiveRefs) {
                 $cert = $certs[$ref.Path]
                 $myBindings += [pscustomobject]@{
                     Device        = $Device
@@ -500,7 +597,7 @@ function Get-F5Data {
     }
     $profilesByCert = @{}
     foreach ($sp in $sslProfiles.Values) {
-        foreach ($ref in $sp.Refs) {
+        foreach ($ref in $sp.EffectiveRefs) {
             if (-not $profilesByCert.ContainsKey($ref.Path)) { $profilesByCert[$ref.Path] = @() }
             $profilesByCert[$ref.Path] += (Short $sp.FullPath)
         }
@@ -890,11 +987,15 @@ $vsAll | Select-Object -Property * -ExcludeProperty MemberList, Bindings | Expor
 $vsMemberRows | Export-Csv -LiteralPath $f.Members -NoTypeInformation -Encoding $csvEncoding
 $poolAll | Select-Object -Property * -ExcludeProperty MemberList | Export-Csv -LiteralPath $f.Pools -NoTypeInformation -Encoding $csvEncoding
 $certAll | Export-Csv -LiteralPath $f.Certs -NoTypeInformation -Encoding $csvEncoding
+$orphanColumns = @('Device', 'Name', 'CommonName', 'IssuerCN', 'ExpirationUtc', 'DaysToExpiry', 'ExpiryStatus', 'ExpiresWithinThreshold', 'OrphanReason', 'IsSystemDefault', 'SubjectAltNames', 'Subject', 'Issuer', 'Key', 'FullPath')
 if ($orphanRows.Count -gt 0) {
-    $orphanRows | Select-Object Device, Name, CommonName, IssuerCN, ExpirationUtc, DaysToExpiry, ExpiryStatus, ExpiresWithinThreshold, OrphanReason, IsSystemDefault, SubjectAltNames, Subject, Issuer, Key, FullPath |
+    $orphanRows | Select-Object -Property $orphanColumns |
         Export-Csv -LiteralPath $f.Orphans -NoTypeInformation -Encoding $csvEncoding
 } else {
-    Set-Content -LiteralPath $f.Orphans -Value 'Device,Name,CommonName,IssuerCN,ExpirationUtc,DaysToExpiry,ExpiryStatus,ExpiresWithinThreshold,OrphanReason' -Encoding UTF8
+    $emptyOrphanRow = [ordered]@{}
+    foreach ($column in $orphanColumns) { $emptyOrphanRow[$column] = $null }
+    $header = ConvertTo-Csv -InputObject ([pscustomobject]$emptyOrphanRow) -NoTypeInformation | Select-Object -First 1
+    Set-Content -LiteralPath $f.Orphans -Value $header -Encoding $csvEncoding
 }
 $utf8Bom = New-Object System.Text.UTF8Encoding($true)
 $inventory = [pscustomobject]@{
