@@ -1,0 +1,7 @@
+#!/bin/sh
+# Pre-commit hook: runs the fast repo checks (sanitization and version-sync).
+# Enable once per clone:  git config core.hooksPath .githooks
+# Hooks are not installed by cloning, so repeat that command on every new clone.
+# Needs bash (included with Git for Windows). Skip in an emergency with: git commit --no-verify
+root=$(git rev-parse --show-toplevel) || exit 1
+exec bash "$root/scripts/check.sh" --fast
