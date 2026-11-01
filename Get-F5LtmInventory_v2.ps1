@@ -46,7 +46,7 @@
         Hostname,Site
         lb1.example.com,DC1
         lb2.example.com,DC2
-        10.20.30.40:8443,Lab
+        192.0.2.40:8443,Lab
 
     The account entered at the prompt is used for every host in the file, so it needs a
     read-only role with access to all partitions on each of them.

@@ -1,0 +1,7 @@
+* text=auto
+*.ps1 text eol=crlf
+*.psd1 text eol=crlf
+*.csv text eol=crlf
+*.sh text eol=lf
+*.yml text eol=lf
+.githooks/* text eol=lf

@@ -1,0 +1,28 @@
+# Generated reports contain real inventory data (hostnames, VIPs, member IPs, certificate subjects).
+# They are never committed. The scripts write to .\F5-Reports by default.
+# Sample-F5-Dashboard.html is the tracked sample and is deliberately not matched by these rules.
+/F5-Reports/
+F5-Dashboard.html
+F5-VirtualServers.csv
+F5-VS-Pool-Members.csv
+F5-Pools.csv
+F5-Certificates.csv
+F5-Orphaned-Certificates.csv
+F5-Inventory.json
+F5-Report.zip
+F5-Report_*.zip
+
+# The real host list stays local; f5-hosts.example.csv is the tracked template.
+f5-hosts.csv
+
+# Credentials exported for the -CredentialFile option, and private sanitization terms
+*.cred
+*.clixml
+*credential*.xml
+.sanitize-deny.local
+
+# Editor and OS files
+.vscode/
+Thumbs.db
+desktop.ini
+.DS_Store
