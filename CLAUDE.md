@@ -50,3 +50,6 @@
 - [ ] Tests: TBD
 - [ ] Status: TBD
 - [ ] With approval: branch protection on `main`, secret scanning and push protection, Dependabot
+
+## 8. Code standards
+- For code implementation, debugging, refactoring, testing, and review tasks, invoke the `code-standards` skill before making changes.
